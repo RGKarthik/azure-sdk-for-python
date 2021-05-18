@@ -41,7 +41,7 @@ function Update-PSModulePath()
 function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryName = $DefaultPSRepository, $repositoryUrl = $DefaultPSRepositoryUrl)
 {
   # Check installed modules
-  $modules = (Get-Module -ListAvailable $moduleName).Where({ $_.Version -ge $version })
+  $modules = (Get-Module -ListAvailable $moduleName).Where({ $_.Version -as [Version] -ge $version -as [Version] })
 
   if ($modules.Count -eq 0)
   {
@@ -62,7 +62,7 @@ function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryName = $
     Install-Module $moduleName -MinimumVersion $version -Repository $repositoryName -Scope CurrentUser -Force
 
     # Ensure module installed
-    $modules = (Get-Module -ListAvailable $moduleName).Where({ $_.Version -ge $version })
+    $modules = (Get-Module -ListAvailable $moduleName).Where({ $_.Version -as [Version] -ge $version -as [Version] })
     if ($modules.Count -eq 0)
     {
       Write-Error "Failed to install module $moduleName with version $version"
