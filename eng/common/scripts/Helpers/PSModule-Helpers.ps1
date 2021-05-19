@@ -1,4 +1,3 @@
-$DefaultPSRepository =  "PSGallery"
 $DefaultPSRepositoryUrl = "https://www.powershellgallery.com/api/v2"
 $global:CurrentUserModulePath = ""
 
@@ -44,47 +43,50 @@ function Update-PSModulePath()
 }
 
 # If we want to use another default repository other then PSGallery we can update the default parameters
-function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryName = $DefaultPSRepository, $repositoryUrl = $DefaultPSRepositoryUrl)
+function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryUrl = $DefaultPSRepositoryUrl)
 {
   # Check installed modules
   $modules = (Get-Module -ListAvailable $moduleName)
-
   if ($version -as [Version]) {
-    $modules = $modules.Where({ [Version]$_.Version -gt [Version]$version })
+    $modules = $modules.Where({ [Version]$_.Version -ge [Version]$version })
   }
 
   if ($modules.Count -eq 0)
   {
-    Unregister-PSRepository $repositoryName -ErrorAction "Ignore"
-
-    # You need to use -Default option when registory powershell gallery.
-    if ($repositoryUrl -eq "https://www.powershellgallery.com/api/v2")
+    $repositories = (Get-PSRepository).Where({ $_.SourceLocation -eq $repositoryUrl })
+    if ($repositories.Count -eq 0)
     {
-      Register-PSRepository -Default -InstallationPolicy Trusted
+      Register-PSRepository -Name $repositoryUrl -SourceLocation $repositoryUrl -InstallationPolicy Trusted
+      $repositories = (Get-PSRepository).Where({ $_.SourceLocation -eq $repositoryUrl })
+      if ($repositories.Count -eq 0) {
+        Write-Error "Failed to registory package repository $repositoryUrl."
+        return
+      }
     }
-    else
-    {
-      Register-PSRepository $repositoryName $repositoryUrl -InstallationPolicy Trusted
+    $repository = $repositories[0]
+
+    if ($repository.InstallationPolicy -ne "Trusted") {
+      Set-PSRepository -Name $repository.Name -InstallationPolicy "Trusted"
     }
 
     Write-Host "Installing module $moduleName with min version $version from $repositoryUrl"
     # Install under CurrentUser scope so that the end up under $CurrentUserModulePath for caching
-    Install-Module $moduleName -MinimumVersion $version -Repository $repositoryName -Scope CurrentUser -Force
+    Install-Module $moduleName -MinimumVersion $version -Repository $repository.Name -Scope CurrentUser -Force
 
     # Ensure module installed
     $modules = (Get-Module -ListAvailable $moduleName)
-
     if ($version -as [Version]) {
-      $modules = $modules.Where({ [Version]$_.Version -gt [Version]$version })
+      $modules = $modules.Where({ [Version]$_.Version -ge [Version]$version })
     }
 
-    if ($modules.Count -eq 0)
-    {
+    if ($modules.Count -eq 0) {
       Write-Error "Failed to install module $moduleName with version $version"
       return
     }
   }
-  return $modules
+
+  Write-Host "Using module $($modules[0].Name) with version $($modules[0].Version)."
+  return $modules[0]
 }
 
 Update-PSModulePath
