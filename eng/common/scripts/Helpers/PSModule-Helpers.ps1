@@ -17,9 +17,21 @@ function Update-PSModulePath()
     $hostedAgentModulePath = "/usr/share"
     $moduleSeperator = ":"
   }
+  $modulePaths = $env:PSModulePath -split $moduleSeperator
+
+  # Remove any hosted agent paths (needed to remove old default azure/azurerm paths which cause conflicts)
+  $modulePaths = $modulePaths.Where({ !$_.StartsWith($hostedAgentModulePath) })
+
+  # Add any "az_" paths from the agent which is the lastest set of azure modules
+  $AzModuleCachPath = (Get-ChildItem "$hostedAgentModulePath/az_*" -Attributes Directory) -join $moduleSeperator
+  if ($AzModuleCachPath -and $env.PSModulePath -notcontains $AzModuleCachPath) {
+    $modulePaths += $AzModuleCachPath
+  }
+
+  $env:PSModulePath = $modulePaths -join $moduleSeperator
 
   # Find the path that is under user home directory
-  $homeDirectories = ($env:PSModulePath -split $moduleSeperator).Where({ $_.StartsWith($home) })
+  $homeDirectories = $modulePaths.Where({ $_.StartsWith($home) })
   if ($homeDirectories.Count -gt 0) {
     $global:CurrentUserModulePath = $homeDirectories[0]
     if ($homeDirectories.Count -gt 1) {
@@ -29,12 +41,6 @@ function Update-PSModulePath()
   else {
     Write-Error "Did not find a module path starting with $home to set up a user module path in $env:PSModulePath"
   }
-
-  # Add az_ module paths from hosted images
-  $AzModulePath = (Get-ChildItem "$hostedAgentModulePath/az_*" -Attributes Directory) -join $moduleSeperator
-  if ($AzModulePath -and $env.PSModulePath -notcontains $env:AzModulePath) {
-    $env:PSModulePath = $AzModulePath + $moduleSeperator + $env:PSModulePath
-  }
 }
 
 # If we want to use another default repository other then PSGallery we can update the default parameters
@@ -43,7 +49,7 @@ function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryName = $
   # Check installed modules
   $modules = (Get-Module -ListAvailable $moduleName)
 
-  if ($version -is [Version]) {
+  if ($version -as [Version]) {
     $modules = $modules.Where({ [Version]$_.Version -gt [Version]$version })
   }
 
@@ -68,7 +74,7 @@ function Install-ModuleIfNotInstalled($moduleName, $version, $repositoryName = $
     # Ensure module installed
     $modules = (Get-Module -ListAvailable $moduleName)
 
-    if ($version -is [Version]) {
+    if ($version -as [Version]) {
       $modules = $modules.Where({ [Version]$_.Version -gt [Version]$version })
     }
 

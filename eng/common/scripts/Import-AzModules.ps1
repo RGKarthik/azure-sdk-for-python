@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param (
-  [string]$AzModuleVersion = $null # null equates to latest
+  [string]$AzModuleVersion = "5.7.0" # Current version cached on agents
 )
 
 . (Join-Path $PSScriptRoot Helpers PSModule-Helpers.ps1)
